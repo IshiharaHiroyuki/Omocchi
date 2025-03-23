@@ -1,0 +1,535 @@
+metadata:
+  version: '1.0'
+  schema: 'enhanced-rules-v1'
+  rule_types:
+    immediate_action:
+      description: '即座に対応が必要なルール'
+      priority: 1
+      response_time: 'immediate'
+    blocking:
+      description: '処理を中断すべきルール'
+      priority: 2
+    warning:
+      description: '警告を発するルール'
+      priority: 3
+    guideline:
+      description: '推奨事項'
+      priority: 4
+
+workflow:
+  development_cycle:
+    rule_type: 'blocking'
+    description: 'イテレーティブな開発サイクルを強制'
+    steps:
+      - order: 1
+        name: '実装スコープの定義'
+        requirements:
+          - '機能を最小単位に分割'
+          - '変更量を制限（50行以内を推奨）'
+          - 'インターフェースの定義を優先'
+        max_changes_per_iteration:
+          lines: 50
+          description: '1つの変更に含める行数を制限（追加・削除の合計）'
+
+      - order: 2
+        name: 'テストファースト'
+        requirements:
+          - 'テストファイルの作成・更新'
+          - '失敗するテストの作成'
+        validation:
+          command: 'npm test'
+          expected_result: 'fail'
+
+      - order: 3
+        name: '実装'
+        requirements:
+          - 'テストを通過する最小限の実装'
+          - '型定義の追加'
+        validation:
+          command: 'npm test'
+          expected_result: 'pass'
+
+      - order: 4
+        name: 'リファクタリング'
+        requirements:
+          - 'コードの整理'
+          - '型の改善'
+        validation:
+          commands:
+            - 'npm run lint:type'
+            - 'npm test'
+          expected_result: 'pass'
+
+    error_handling:
+      - condition: 'テスト失敗'
+        action: 'block_next_step'
+        message: '現在のステップのテストを修正してください'
+      
+      - condition: '型エラー'
+        action: 'block_next_step'
+        message: '型の問題を解決してください'
+
+  basic:
+    task_branch:
+      rule_type: 'blocking'
+      conditions:
+        max_tasks_per_branch: 1
+        error_message: '複数タスクの混在は禁止'
+        error_action: 'block_operation'
+        recovery_steps:
+          - '新しいブランチを作成'
+          - 'タスクを分割'
+
+    quality_checks:
+      rule_type: 'blocking'
+      required_commands:
+        - command: 'npm test'
+          description: 'テスト実行'
+
+    pr_preparation:
+      rule_type: 'blocking'
+      description: 'PR作成前に最新mainを取得'
+      commands:
+        - 'git fetch origin'
+        - 'git checkout main && git pull'
+
+    task_completion:
+      review:
+        rule_type: 'blocking'
+        description: 'タスク完了時に必ず振り返りを実施'
+        points:
+          - type: 'time_analysis'
+            description: '時間がかかった箇所の特定と改善提案'
+            required: true
+          - type: 'code_quality'
+            description: 'コードの品質に関する振り返り'
+            required: true
+          - type: 'knowledge_sharing'
+            description: '得られた知見の共有'
+            required: true
+          - type: 'improvement_process'
+            description: '改善の実施プロセス'
+            required: true
+            steps:
+              - 'チャットで提案'
+              - '許可を得てから実施'
+      
+      clinerules_updates:
+        rule_type: 'guideline'
+        rules:
+          - '情報は1箇所にまとめる（他ファイルへの参照を避ける）'
+          - '設定ファイルの内容も必要に応じて記載'
+          - 'トークン消費と作業効率を考慮する'
+
+  task_states:
+    completion:
+      rule_type: 'guideline'
+      keywords:
+        - 'Fin'
+        - 'End'
+        - 'Close'
+        - 'Closed'
+        - 'Merged'
+
+  checklists:
+    start:
+      rule_type: 'blocking'
+      description: '作業を開始する前に、以下の項目を確認すること'
+      items:
+        - description: 'Issue URLが提供された場合、確認'
+          command: 'gh issue view <number>'
+          required: true
+        - description: '最新のmainを取得'
+          commands:
+            - 'git fetch origin'
+            - 'git checkout main && git pull'
+          required: true
+        - description: '作業用ブランチの作成'
+          command: 'git checkout -b <branch-name>'
+          required: true
+        - description: '修正範囲の特定'
+          required: true
+        - description: 'テスト方針の確認'
+          required: true
+
+    pre_commit:
+      rule_type: 'blocking'
+      description: 'コミットする前に、以下のコマンドを必ず実行すること'
+      commands:
+        - command: 'npm test'
+          description: 'テストを実行して機能の正常性を確認'
+          required: true
+
+    pre_push:
+      rule_type: 'blocking'
+      items:
+        - 'コミット前チェックリストが完了していること'
+        - 'git statusでプッシュ対象の変更を確認'
+
+    rules:
+      rule_type: 'blocking'
+      items:
+        - '全てのチェック項目を必ず実行する'
+        - 'チェック失敗時は即座に修正する'
+
+  branch_naming:
+    rule_type: 'blocking'
+    prefixes:
+      feature: '新機能開発'
+      fix: 'バグ修正'
+      docs: 'ドキュメント関連'
+      refactor: 'リファクタリング'
+      test: 'テスト関連'
+    validation:
+      pattern: '^(feature|fix|docs|refactor|test)/'
+      error_message: '指定されたプレフィックスを使用してください'
+
+  commit_messages:
+    rule_type: 'blocking'
+    prefixes:
+      feat: '新機能'
+      fix: 'バグ修正'
+      docs: 'ドキュメント関連（[skip ci] タグ必須）'
+      style: 'コードスタイルの修正（ロジックの変更を伴わない）'
+      refactor: 'リファクタリング'
+      test: 'テスト関連'
+      chore: 'ビルドプロセスやツール関連'
+    validation:
+      pattern: '^(feat|fix|docs|style|refactor|test|chore): .+(\[skip ci\])?$'
+      error_message: '正しいプレフィックスと形式を使用してください。docs の場合は [skip ci] タグが必須です。'
+    docs_requirements:
+      skip_ci:
+        required: true
+        description: 'ドキュメント関連の変更には [skip ci] タグが必須'
+        example: 'docs: update readme [skip ci]'
+
+  pull_requests:
+    creation_steps:
+      rule_type: 'blocking'
+      steps:
+        - order: 1
+          name: 'コミット前チェックリストの完了'
+          reason: 'コードの品質を確保し、CIが成功することを確認'
+          prerequisites: []
+          error_conditions:
+            - condition: 'チェックリスト未完了'
+              certainty: 1.0
+              error_message: 'CIが失敗する可能性'
+              required_action: 'complete_checklist'
+
+        - order: 2
+          name: '変更のプッシュ'
+          reason: 'PRの作成にはリモートブランチが必要'
+          prerequisites: ['コミット前チェックリスト完了']
+          error_conditions:
+            - condition: 'プッシュ前のPR作成'
+              certainty: 1.0
+              error_message: 'Head sha can\'t be blank エラーで失敗'
+              required_action: 'push_changes'
+
+        - order: 3
+          name: 'PR作成'
+          reason: 'レビュー依頼のため'
+          prerequisites: ['コミット前チェックリスト完了', '変更のプッシュ']
+          error_conditions:
+            - condition: 'プッシュ前のPR作成'
+              certainty: 1.0
+              error_message: '必ず失敗する'
+              required_action: 'follow_correct_order'
+
+    template:
+      source: '.github/pull_request_template.md'
+      required_sections:
+        - name: 'やったこと'
+          format: '箇条書きで端的にポイントを記載'
+        - name: 'レビュー時に気をつけて欲しいこと、参考情報'
+        - name: '疑問点、確認などあれば'
+        - name: '残項目'
+        - name: 'チェックリスト完了確認'
+          template: |
+            ## チェックリスト完了確認
+
+            ### 作業開始時のチェックリスト
+            - [ ] Issue URLが提供された場合、'gh issue view <number>' で内容を確認
+            - [ ] 作業用ブランチの作成
+            - [ ] 修正範囲の特定
+            - [ ] テスト方針の確認
+
+            ### コミット前のチェックリスト
+            - [ ] npm test
+
+            ### push前のチェックリスト
+            - [ ] コミット前チェックリストが完了していること
+            - [ ] git statusでプッシュ対象の変更を確認
+
+            ### PR作成前のチェックリスト
+            - [ ] コミット前チェックリストの完了確認
+            - [ ] コミットメッセージの規約確認
+            - [ ] PR作成規約の確認
+
+    cline_requirements:
+      rule_type: 'blocking'
+      title:
+        prefix: '[Cline]'
+        required: true
+      sections:
+        - name: 'プロンプト履歴'
+          required: true
+          items:
+            - 'ユーザーが指示したプロンプトを時系列で記載'
+            - 'ユーザーからのフィードバックも含める'
+        - name: 'コンテキスト情報'
+          required: true
+          items:
+            - 'PRの目的と背景'
+            - '関連する技術的な詳細'
+            - 'プロジェクト固有の重要な機能への影響'
+
+  issues:
+    cline_requirements:
+      rule_type: 'blocking'
+      title:
+        prefix: '[Cline]'
+        required: true
+
+coding:
+  implementation_scope:
+    rule_type: 'blocking'
+    rules:
+      max_changes_per_commit:
+        lines: 50
+        error_message: '変更が大きすぎます。より小さな単位に分割してください'
+        description: |
+          1つのコミットに含める変更量を制限します。
+          - 追加・削除を合わせて50行以内を推奨
+          - コメントや空行も含めてカウント
+          - 自動生成されるコードは除外
+
+      interface_first:
+        rule_type: 'blocking'
+        steps:
+          - '型定義の作成'
+          - 'インターフェースの実装'
+          - '具体的な実装'
+
+      type_safety:
+        rule_type: 'immediate_action'
+        validation:
+          timing: 'on_save'
+          command: 'npm run lint:type'
+        error_handling:
+          action: 'block_commit'
+          message: '型エラーを修正してください'
+
+  library_design:
+    suspense:
+      rule_type: 'guideline'
+      principles:
+        - '最小限の機能セットと単一責任の原則を遵守'
+        - 'バックエンド非依存の汎用実装'
+        - 'エラーハンドリングは外部実装を推奨（ErrorBoundaryパターン）'
+        - 'インターフェースの後方互換性を維持'
+
+  style:
+    rule_type: 'blocking'
+    rules:
+      indent:
+        size: 2
+        type: 'space'
+      quotes: 'single'
+      components:
+        type: 'function'
+        hooks:
+          prefix: 'use'
+          required: true
+      state_management:
+        - 'Context API'
+        - 'カスタムフック'
+
+  testing:
+    workflow:
+      rule_type: 'blocking'
+      cycle:
+        - step: 'red'
+          description: '失敗するテストを書く'
+          validation:
+            command: 'npm test'
+            expected_result: 'fail'
+        
+        - step: 'green'
+          description: 'テストを通す最小限の実装'
+          validation:
+            command: 'npm test'
+            expected_result: 'pass'
+        
+        - step: 'refactor'
+          description: 'コードの改善'
+          validation:
+            commands:
+              - 'npm run lint:type'
+              - 'npm test'
+            expected_result: 'pass'
+
+      requirements:
+        - 'テストファーストで開発を進める'
+        - '各ステップでテストを実行'
+        - 'テストが失敗している状態で次のステップに進まない'
+
+    file_naming:
+      rule_type: 'blocking'
+      patterns:
+        - '.test.ts'
+        - '.test.tsx'
+    frameworks:
+      unit: 'Jest'
+      ui: 'React Testing Library'
+    quality:
+      rule_type: 'guideline'
+      requirements:
+        - 'ヘルパー関数による共通処理の再利用'
+        - 'テストケースの目的別グループ化'
+        - '重要ロジックのカバレッジ確保'
+        - '異常系テストの実装'
+
+  file_structure:
+    source:
+      rule_type: 'guideline'
+      src:
+        components: '再利用可能なコンポーネント'
+        pages: 'ページコンポーネント'
+        lib: 'ユーティリティ関数'
+        model: 'ビジネスロジック'
+        shared: '共有の型定義など'
+
+    excluded:
+      rule_type: 'blocking'
+      patterns:
+        - pattern: 'node_modules/'
+          description: '依存関係モジュール'
+        - pattern: 'dist/, build/'
+          description: 'ビルド成果物'
+        - pattern: 'functions/lib/'
+          description: 'コンパイル済みファイル'
+        - pattern: 'coverage/'
+          description: 'テストカバレッジレポート'
+        - pattern: '.firebase/'
+          description: 'デプロイキャッシュ'
+
+troubleshooting:
+  lint:
+    rule_type: 'blocking'
+    process:
+      - step: 1
+        action: 'npm run lint:fix'
+        description: '自動修正を試みる'
+        certainty: 1.0
+        error_prevention:
+          - 'eslint設定ファイルでルールを確認'
+          - '自動修正を最初に試行'
+      - step: 2
+        action: '手動修正'
+        condition: '自動修正で解決しない場合'
+
+    auto_fixes:
+      import_order:
+        command: 'npm run lint:fix'
+        description: 'インポート順序の自動修正'
+        config_location: 'eslint.config.js'
+      code_format:
+        command: 'npm run format:fix'
+        description: 'コードフォーマットの自動修正'
+
+    refactoring:
+      rule_type: 'guideline'
+      strategies:
+        - name: 'incremental'
+          description: '1ファイル1コミットで変更'
+          benefits:
+            - '問題の早期発見'
+            - 'レビューの容易さ'
+        - name: 'custom_hooks'
+          description: 'ロジックの集約'
+          benefits:
+            - '重複の削減'
+            - 'メンテナンス性向上'
+            - 'テストの容易さ'
+
+  git:
+    pr_command:
+      rule_type: 'blocking'
+      tool: 'gh'
+      required_args:
+        repo: 'CircleAround/myrepo'
+        head: 'プッシュ先ブランチ'
+        base: 'main'
+        title: '[Cline] タイトル'
+        body: 'PR説明文'
+
+    commit_management:
+      rule_type: 'blocking'
+      rules:
+        - 'コミット番号は必ずタスク完了時に報告'
+        - 'PR作成後は実際のリポジトリの状態を確認'
+
+    shell_commands:
+      rule_type: 'warning'
+      quote_style:
+        correct:
+          style: "シングルクォート（'）"
+          example: "'gh issue view <number>'"
+        incorrect:
+          style: "バッククォート（`）"
+          example: "`gh issue view <number>`"
+
+security:
+  clineignore:
+    rule_type: 'immediate_action'
+    excluded_categories:
+      - name: '環境変数とシークレット'
+        examples: ['.env関連ファイル', '証明書']
+      - name: '依存関係'
+        examples: ['node_modules']
+      - name: 'ビルドとコンパイル済みファイル'
+      - name: 'システムファイル'
+      - name: 'ログファイル'
+      - name: 'キャッシュファイル'
+
+    update_requirements:
+      rule_type: 'blocking'
+      rules:
+        - '変更の理由と影響範囲を明確にすること'
+        - 'セキュリティリスクの有無を評価すること'
+        - '変更後にテストを実行して影響がないことを確認すること'
+
+  sensitive_information:
+    rule_type: 'immediate_action'
+    restricted_files:
+      - pattern: '.env'
+        action: 'immediate_stop'
+        message: '即座に利用を停止'
+      - pattern: 'APIキー、トークン、認証情報を含むすべてのファイル'
+        action: 'immediate_stop'
+        message: '読み取り・変更を禁止'
+
+    rules:
+      - rule: 'APIキーなどの機密情報はコミットしない'
+        detection:
+          patterns: ['api_key', 'token', 'secret']
+          locations: ['diff', 'file_content']
+        actions:
+          - 'stop_commit'
+          - 'warn_user'
+          - 'suggest_env_usage'
+      - rule: '環境変数は .env ファイルで管理'
+      - rule: 'ユーザー所有のFirestoreへのアクセスは適切な認証を必須とする'
+
+rule_interpretation:
+  context_rules:
+    - name: 'priority_override'
+      description: '優先度の高いルールが競合した場合、より高い優先度のルールを適用'
+    - name: 'immediate_action_first'
+      description: 'immediate_action タイプのルールは他のルールより優先'
+    - name: 'blocking_chain'
+      description: 'blocking ルールが発動した場合、後続のアクションをすべて中止'
+    - name: 'error_certainty'
+      description: 'certainty: 1.0 の場合、必ず失敗として扱う'
