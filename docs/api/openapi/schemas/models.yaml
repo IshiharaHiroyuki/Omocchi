@@ -1,6 +1,6 @@
 components:
   schemas:
-    # ユーザー関連
+  # ユーザー関連
     User:
       type: object
       required:
@@ -31,7 +31,7 @@ components:
             type: string
           example: ["read:faqs", "create:feedback"]
 
-    # FAQ関連
+  # FAQ関連
     FAQ:
       type: object
       required:
@@ -90,7 +90,7 @@ components:
           format: date-time
           description: 更新日時
 
-    # カテゴリ関連
+  # カテゴリ関連
     Category:
       type: object
       required:
@@ -120,7 +120,7 @@ components:
           items:
             $ref: "#/components/schemas/Category"
 
-    # タグ関連
+  # タグ関連
     Tag:
       type: object
       required:
@@ -140,7 +140,7 @@ components:
           description: 使用回数
           example: 10
 
-    # 添付ファイル関連
+  # 添付ファイル関連
     Attachment:
       type: object
       required:
@@ -170,7 +170,7 @@ components:
           description: ファイルサイズ（バイト）
           example: 1024
 
-    # フィードバック関連
+  # フィードバック関連
     Feedback:
       type: object
       required:
@@ -204,3 +204,469 @@ components:
           type: string
           format: date-time
           description: 作成日時
+          
+  # 認証・認可関連
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+        - user
+      properties:
+        access_token:
+          type: string
+          description: アクセストークン
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token:
+          type: string
+          description: リフレッシュトークン
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: トークンタイプ
+          example: "Bearer"
+        expires_in:
+          type: integer
+          description: アクセストークンの有効期限（秒）
+          example: 3600
+        user:
+          $ref: "#/components/schemas/User"
+
+  # 問合せ関連
+    Inquiry:
+      type: object
+      required:
+        - id
+        - ticket_number
+        - subject
+        - content
+        - status
+        - priority
+        - contact_info
+      properties:
+        id:
+          type: integer
+          description: 問合せID
+          example: 1
+        ticket_number:
+          type: string
+          description: チケット番号
+          pattern: "^INQ\\d{8}\\d{3}$"
+          example: "INQ20250323001"
+        subject:
+          type: string
+          description: 件名
+          minLength: 1
+          maxLength: 200
+          example: "アカウントログインについて"
+        content:
+          type: string
+          description: 問合せ内容
+          minLength: 10
+          maxLength: 10000
+        status:
+          $ref: "#/components/schemas/InquiryStatus"
+        priority:
+          $ref: "#/components/schemas/InquiryPriority"
+        category:
+          $ref: "#/components/schemas/Category"
+        contact_info:
+          type: object
+          required:
+            - email
+            - name
+          properties:
+            email:
+              type: string
+              format: email
+              description: 連絡先メールアドレス
+            name:
+              type: string
+              maxLength: 100
+              description: お名前
+            phone:
+              type: string
+              pattern: "^[0-9-+]+$"
+              maxLength: 20
+              description: 電話番号
+        assignee:
+          $ref: "#/components/schemas/User"
+        related_faq:
+          $ref: "#/components/schemas/FAQ"
+        responses:
+          type: array
+          items:
+            $ref: "#/components/schemas/InquiryResponse"
+        attachments:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/Attachment"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_response_at:
+          type: string
+          format: date-time
+        estimated_response_time:
+          type: string
+          format: date-time
+
+    InquiryResponse:
+      type: object
+      required:
+        - id
+        - content
+        - author
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: 返信ID
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: 返信内容
+        is_internal:
+          type: boolean
+          description: 内部メモとして扱うかどうか
+          default: false
+        author:
+          $ref: "#/components/schemas/User"
+        attachments:
+          type: array
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/Attachment"
+        status_update:
+          type: object
+          properties:
+            from:
+              $ref: "#/components/schemas/InquiryStatus"
+            to:
+              $ref: "#/components/schemas/InquiryStatus"
+            comment:
+              type: string
+              maxLength: 1000
+        created_at:
+          type: string
+          format: date-time
+
+    InquiryStatus:
+      type: string
+      enum: [new, in_progress, waiting_response, resolved, closed]
+      description: |
+        問合せステータス
+        - new: 新規問合せ
+        - in_progress: 対応中
+        - waiting_response: 返信待ち
+        - resolved: 解決済み
+        - closed: 完了
+
+    InquiryPriority:
+      type: string
+      enum: [low, medium, high, urgent]
+      description: |
+        問合せ優先度
+        - low: 低
+        - medium: 中
+        - high: 高
+        - urgent: 緊急
+
+    TimelineEvent:
+      type: object
+      required:
+        - type
+        - occurred_at
+        - actor
+      properties:
+        type:
+          type: string
+          enum: [created, assigned, status_changed]
+          description: イベントタイプ
+        occurred_at:
+          type: string
+          format: date-time
+          description: 発生日時
+        actor:
+          $ref: "#/components/schemas/User"
+        assignee:
+          $ref: "#/components/schemas/User"
+        from_status:
+          $ref: "#/components/schemas/InquiryStatus"
+        to_status:
+          $ref: "#/components/schemas/InquiryStatus"
+        comment:
+          type: string
+          maxLength: 1000
+          description: 変更理由や備考
+
+  # 統計関連
+    FaqStats:
+      type: object
+      properties:
+        period:
+          type: object
+          required:
+            - start_date
+            - end_date
+          properties:
+            start_date:
+              type: string
+              format: date
+              description: 集計開始日（YYYY-MM-DD）
+            end_date:
+              type: string
+              format: date
+              description: 集計終了日（YYYY-MM-DD）
+        summary:
+          type: object
+          properties:
+            total_views:
+              type: integer
+              description: 総閲覧数
+            total_feedbacks:
+              type: integer
+              description: 総フィードバック数
+            average_rating:
+              type: number
+              format: float
+              description: 平均評価（0-5）
+            resolution_rate:
+              type: number
+              format: float
+              description: 解決率（0-1）
+        top_viewed:
+          type: array
+          description: よく見られているFAQ
+          maxItems: 10
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+              view_count:
+                type: integer
+        daily_stats:
+          type: array
+          description: 日次統計データ
+          items:
+            type: object
+            required:
+              - date
+              - views
+            properties:
+              date:
+                type: string
+                format: date
+              views:
+                type: integer
+              feedbacks:
+                type: integer
+              average_rating:
+                type: number
+                format: float
+
+  # WebSocket関連
+    WebSocketMessage:
+      type: object
+      required:
+        - event
+        - timestamp
+        - data
+      properties:
+        event:
+          type: string
+          enum:
+            - connection.established
+            - connection.error
+            - connection.closed
+            - faq.created
+            - faq.updated
+            - faq.deleted
+            - faq.status_changed
+            - inquiry.created
+            - inquiry.updated
+            - inquiry.status_changed
+            - inquiry.response_added
+          description: イベントタイプ
+        timestamp:
+          type: string
+          format: date-time
+          description: イベント発生時刻
+        data:
+          type: object
+          description: イベントデータ
+        metadata:
+          type: object
+          description: 追加メタデータ
+          properties:
+            user:
+              $ref: "#/components/schemas/User"
+            source:
+              type: string
+              enum: [system, user, integration]
+
+    WebSocketError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - connection_error
+            - authentication_failed
+            - invalid_message
+            - rate_limit_exceeded
+            - internal_error
+          description: エラーコード
+        message:
+          type: string
+          description: エラーメッセージ
+        details:
+          type: object
+          description: エラー詳細情報
+        retry_after:
+          type: integer
+          description: 再試行までの待機時間（秒）
+
+# 検索関連
+    SearchQuery:
+      type: object
+      required:
+        - q
+      properties:
+        q:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 検索キーワード
+        filters:
+          type: object
+          properties:
+            categories:
+              type: array
+              items:
+                type: integer
+            tags:
+              type: array
+              items:
+                type: integer
+            status:
+              type: array
+              items:
+                type: integer
+                enum: [0, 1, 2]
+        sort:
+          type: string
+          enum: [relevance, created_at, updated_at, view_count, helpful_rate]
+          default: relevance
+        order:
+          type: string
+          enum: [asc, desc]
+          default: desc
+
+    SearchResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: 検索結果の総件数
+        page:
+          type: integer
+          description: 現在のページ番号
+        per_page:
+          type: integer
+          description: 1ページあたりの件数
+        query:
+          $ref: "#/components/schemas/SearchQuery"
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [faq, inquiry]
+              score:
+                type: number
+                format: float
+                description: 関連度スコア
+              highlight:
+                type: object
+                properties:
+                  title:
+                    type: array
+                    items:
+                      type: string
+                  content:
+                    type: array
+                    items:
+                      type: string
+              document:
+                oneOf:
+                  - $ref: "#/components/schemas/FAQ"
+                  - $ref: "#/components/schemas/Inquiry"
+        facets:
+          type: object
+          properties:
+            categories:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  count:
+                    type: integer
+            tags:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  count:
+                    type: integer
+
+    SearchSuggestion:
+      type: object
+      properties:
+        text:
+          type: string
+          description: 検索候補のテキスト
+        score:
+          type: number
+          format: float
+          description: 関連度スコア
+        type:
+          type: string
+          enum: [keyword, category, tag, faq_title]
+          description: 検索候補の種類
+        metadata:
+          type: object
+          description: 追加情報
+          properties:
+            id:
+              type: integer
+            count:
+              type: integer
+            category:
+              $ref: "#/components/schemas/Category"
+            tag:
+              $ref: "#/components/schemas/Tag"
