@@ -37,5 +37,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # その他
+old/
 .vercel
 .serverless/
