@@ -1,0 +1,149 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - Authentication API
+  version: 1.0.0
+
+paths:
+  /auth/token:
+    post:
+      tags:
+        - auth
+      summary: アクセストークンの取得
+      description: |
+        メールアドレスとパスワードを使用してアクセストークンを取得します。
+        
+        ## レート制限
+        - 同一IPアドレスからの試行: 10回/分
+        - 同一アカウントへの試行: 5回/分
+      operationId: createToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                  description: メールアドレス
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  maxLength: 100
+                  example: "your-secure-password"
+                  description: パスワード（8文字以上）
+      responses:
+        '200':
+          description: トークン取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "./schemas/security.yaml#/components/schemas/TokenResponse"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "invalid_credentials"
+                      message:
+                        type: string
+                        example: "メールアドレスまたはパスワードが正しくありません"
+                      details:
+                        type: object
+                        properties:
+                          attempts_remaining:
+                            type: integer
+                            example: 3
+                          lockout_time:
+                            type: string
+                            format: date-time
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      summary: アクセストークンの更新
+      description: リフレッシュトークンを使用して新しいアクセストークンを取得します。
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: リフレッシュトークン
+      responses:
+        '200':
+          description: トークン更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "./schemas/security.yaml#/components/schemas/TokenResponse"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          description: 無効なリフレッシュトークン
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "invalid_refresh_token"
+                      message:
+                        type: string
+                        example: "リフレッシュトークンが無効です"
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      summary: ログアウト
+      description: 現在のセッションをログアウトし、トークンを無効化します。
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: ログアウト成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ログアウトしました"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./schemas/security.yaml#/components/securitySchemes/bearerAuth"

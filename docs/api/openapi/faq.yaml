@@ -1,0 +1,489 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - FAQ Management API
+  version: 1.0.0
+
+paths:
+  /faqs:
+    get:
+      tags:
+        - faq
+      summary: FAQ一覧取得
+      description: |
+        FAQの一覧を取得します。
+        
+        ## キャッシュ戦略
+        - 公開FAQのみキャッシュ（1時間）
+        - 検索結果は短時間キャッシュ（5分）
+        - 認証済みユーザーの結果はキャッシュなし
+      operationId: listFaqs
+      parameters:
+        - $ref: "./common.yaml#/components/parameters/pageParam"
+        - $ref: "./common.yaml#/components/parameters/perPageParam"
+        - name: category_id
+          in: query
+          description: カテゴリID
+          schema:
+            type: integer
+            minimum: 1
+        - name: tag_id
+          in: query
+          description: タグID
+          schema:
+            type: integer
+            minimum: 1
+        - name: q
+          in: query
+          description: 検索キーワード
+          schema:
+            type: string
+            maxLength: 100
+        - name: status
+          in: query
+          description: ステータス（0:下書き, 1:公開, 2:非公開）
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+        - name: sort
+          in: query
+          description: ソートフィールド
+          schema:
+            type: string
+            enum: [created_at, updated_at, view_count, helpful_rate]
+            default: created_at
+        - name: order
+          in: query
+          description: ソート順
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: FAQ一覧取得成功
+          headers:
+            X-Total-Count:
+              $ref: "./common.yaml#/components/headers/X-Total-Count"
+            X-Page-Number:
+              $ref: "./common.yaml#/components/headers/X-Page-Number"
+            X-Page-Size:
+              $ref: "./common.yaml#/components/headers/X-Page-Size"
+            Cache-Control:
+              $ref: "./common.yaml#/components/headers/Cache-Control"
+            ETag:
+              $ref: "./common.yaml#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessCollectionResponse"
+                  - type: object
+                    properties:
+                      faqs:
+                        type: array
+                        items:
+                          $ref: "./schemas/models.yaml#/components/schemas/FAQ"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+
+    post:
+      tags:
+        - faq
+      summary: FAQ作成
+      description: |
+        新しいFAQを作成します。
+        
+        ## レート制限
+        - 1ユーザーあたり: 60リクエスト/時
+        - 添付ファイルの合計サイズ: 50MB/時
+      operationId: createFaq
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+                - category_ids
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: FAQタイトル
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+                  description: FAQ本文
+                category_ids:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                  minItems: 1
+                  maxItems: 5
+                  description: カテゴリID配列（1-5個）
+                tag_ids:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                  maxItems: 10
+                  description: タグID配列（最大10個）
+                status:
+                  type: integer
+                  enum: [0, 1, 2]
+                  default: 0
+                  description: ステータス（0:下書き, 1:公開, 2:非公開）
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                        maxLength: 255
+                      content_base64:
+                        type: string
+                        maxLength: 10485760 # 10MB
+                  maxItems: 5
+                  description: 添付ファイル（最大5個、各10MBまで）
+      responses:
+        '201':
+          description: FAQ作成成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      faq:
+                        $ref: "./schemas/models.yaml#/components/schemas/FAQ"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+  /faqs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: FAQ ID
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags:
+        - faq
+      summary: FAQ詳細取得
+      description: |
+        指定されたIDのFAQ詳細を取得します。
+        
+        ## キャッシュ戦略
+        - 公開FAQのみキャッシュ（1時間）
+        - 非公開・下書きFAQはキャッシュなし
+      operationId: getFaq
+      responses:
+        '200':
+          description: FAQ詳細取得成功
+          headers:
+            Cache-Control:
+              $ref: "./common.yaml#/components/headers/Cache-Control"
+            ETag:
+              $ref: "./common.yaml#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "./schemas/models.yaml#/components/schemas/FAQ"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+    put:
+      tags:
+        - faq
+      summary: FAQ更新
+      description: |
+        指定されたIDのFAQを更新します。
+        
+        ## レート制限
+        - 1ユーザーあたり: 60リクエスト/時
+        - 添付ファイルの合計サイズ: 50MB/時
+      operationId: updateFaq
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+                - category_ids
+                - status
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: FAQタイトル
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+                  description: FAQ本文
+                category_ids:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                  minItems: 1
+                  maxItems: 5
+                  description: カテゴリID配列（1-5個）
+                tag_ids:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                  maxItems: 10
+                  description: タグID配列（最大10個）
+                status:
+                  type: integer
+                  enum: [0, 1, 2]
+                  description: ステータス（0:下書き, 1:公開, 2:非公開）
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: 既存の添付ファイルID
+                      filename:
+                        type: string
+                        maxLength: 255
+                      content_base64:
+                        type: string
+                        maxLength: 10485760 # 10MB
+                  maxItems: 5
+                  description: 添付ファイル（最大5個、各10MBまで）
+      responses:
+        '200':
+          description: FAQ更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      faq:
+                        $ref: "./schemas/models.yaml#/components/schemas/FAQ"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+    delete:
+      tags:
+        - faq
+      summary: FAQ削除
+      description: |
+        指定されたIDのFAQを削除します。
+        
+        ## レート制限
+        - 1ユーザーあたり: 30リクエスト/時
+      operationId: deleteFaq
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: FAQ削除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "FAQ deleted successfully"
+                  faq:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      title:
+                        type: string
+                      deleted_at:
+                        type: string
+                        format: date-time
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+  /faqs/{id}/versions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: FAQ ID
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags:
+        - faq
+      summary: FAQバージョン履歴取得
+      description: 指定されたFAQのバージョン履歴を取得します。
+      operationId: getFaqVersions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: バージョン履歴取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  versions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        version:
+                          type: integer
+                        editor:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                        changes:
+                          type: object
+                        created_at:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+  /faqs/bulk:
+    post:
+      tags:
+        - faq
+      summary: FAQ一括操作
+      description: |
+        複数のFAQに対して一括操作を実行します。
+        
+        ## レート制限
+        - 1ユーザーあたり: 10リクエスト/時
+      operationId: bulkFaqOperation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - faq_ids
+              properties:
+                action:
+                  type: string
+                  enum: [update_status, delete, categorize]
+                  description: 実行する操作
+                faq_ids:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                  minItems: 1
+                  maxItems: 100
+                  description: 対象のFAQ ID配列
+                params:
+                  type: object
+                  properties:
+                    status:
+                      type: integer
+                      enum: [0, 1, 2]
+                      description: update_status時の新しいステータス
+                    category_ids:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: 1
+                      description: categorize時の新しいカテゴリID配列
+      responses:
+        '200':
+          description: 一括操作成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Bulk operation completed"
+                  results:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      succeeded:
+                        type: integer
+                      failed:
+                        type: integer
+                      failures:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            faq_id:
+                              type: integer
+                            error:
+                              type: string
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./schemas/security.yaml#/components/securitySchemes/bearerAuth"

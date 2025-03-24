@@ -1,0 +1,387 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - Statistics API
+  version: 1.0.0
+
+paths:
+  /stats/faqs:
+    get:
+      tags:
+        - stats
+      summary: FAQ統計取得
+      description: FAQ関連の統計情報を取得します。
+      operationId: getFaqStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: 集計開始日（YYYY-MM-DD）
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: 集計終了日（YYYY-MM-DD）
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: カテゴリでフィルタ
+      responses:
+        '200':
+          description: FAQ統計取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: object
+                    properties:
+                      start_date:
+                        type: string
+                        format: date
+                      end_date:
+                        type: string
+                        format: date
+                  summary:
+                    type: object
+                    properties:
+                      total_views:
+                        type: integer
+                      total_feedbacks:
+                        type: integer
+                      average_rating:
+                        type: number
+                        format: float
+                      resolution_rate:
+                        type: number
+                        format: float
+                  top_viewed:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        title:
+                          type: string
+                        view_count:
+                          type: integer
+                  top_rated:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        title:
+                          type: string
+                        rating:
+                          type: number
+                          format: float
+                  daily_stats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        views:
+                          type: integer
+                        feedbacks:
+                          type: integer
+                        average_rating:
+                          type: number
+                          format: float
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+  /stats/feedback:
+    get:
+      tags:
+        - stats
+      summary: フィードバック統計取得
+      description: フィードバック関連の統計情報を取得します。
+      operationId: getFeedbackStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: フィードバック統計取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: object
+                    properties:
+                      start_date:
+                        type: string
+                        format: date
+                      end_date:
+                        type: string
+                        format: date
+                  summary:
+                    type: object
+                    properties:
+                      total_feedback_count:
+                        type: integer
+                      average_rating:
+                        type: number
+                        format: float
+                      resolution_rate:
+                        type: number
+                        format: float
+                  rating_distribution:
+                    type: object
+                    properties:
+                      "1":
+                        type: integer
+                      "2":
+                        type: integer
+                      "3":
+                        type: integer
+                      "4":
+                        type: integer
+                      "5":
+                        type: integer
+                  daily_stats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        feedback_count:
+                          type: integer
+                        average_rating:
+                          type: number
+                          format: float
+                        resolution_rate:
+                          type: number
+                          format: float
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+  /stats/inquiries:
+    get:
+      tags:
+        - stats
+      summary: 問合せ統計取得
+      description: 問合せ関連の統計情報を取得します。
+      operationId: getInquiryStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 問合せ統計取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: object
+                    properties:
+                      start_date:
+                        type: string
+                        format: date
+                      end_date:
+                        type: string
+                        format: date
+                  summary:
+                    type: object
+                    properties:
+                      total_inquiries:
+                        type: integer
+                      resolved_inquiries:
+                        type: integer
+                      resolution_rate:
+                        type: number
+                        format: float
+                      average_response_time:
+                        type: string
+                      average_resolution_time:
+                        type: string
+                  by_status:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  by_priority:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  by_category:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        count:
+                          type: integer
+                  daily_stats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        new_inquiries:
+                          type: integer
+                        resolved_inquiries:
+                          type: integer
+                        average_response_time:
+                          type: string
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+  /stats/trends:
+    get:
+      tags:
+        - stats
+      summary: トレンド分析データ取得
+      description: FAQシステム全体のトレンド分析データを取得します。
+      operationId: getTrendStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: トレンド分析データ取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: object
+                    properties:
+                      start_date:
+                        type: string
+                        format: date
+                      end_date:
+                        type: string
+                        format: date
+                  trending_topics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        topic:
+                          type: string
+                        count:
+                          type: integer
+                        trend:
+                          type: number
+                          format: float
+                        related_faqs:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                              title:
+                                type: string
+                  search_trends:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        keyword:
+                          type: string
+                        count:
+                          type: integer
+                        trend:
+                          type: number
+                          format: float
+                  user_behavior:
+                    type: object
+                    properties:
+                      average_session_duration:
+                        type: string
+                      average_pages_per_session:
+                        type: number
+                        format: float
+                      search_success_rate:
+                        type: number
+                        format: float
+                      faq_effectiveness:
+                        type: number
+                        format: float
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./schemas/security.yaml#/components/securitySchemes/bearerAuth"

@@ -1,0 +1,108 @@
+components:
+  schemas:
+    # ページネーション情報
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: 総件数
+          example: 100
+        page:
+          type: integer
+          description: 現在のページ番号
+          example: 1
+        per_page:
+          type: integer
+          description: 1ページあたりの件数
+          example: 20
+        total_pages:
+          type: integer
+          description: 総ページ数
+          example: 5
+
+    # リンク情報
+    LinksMeta:
+      type: object
+      properties:
+        self:
+          type: string
+          description: 現在のリソースへのリンク
+          example: "/faqs/1"
+        edit:
+          type: string
+          description: リソース編集用リンク
+          example: "/faqs/1/edit"
+        next:
+          type: string
+          description: 次ページへのリンク
+          example: "/faqs?page=2"
+        prev:
+          type: string
+          description: 前ページへのリンク
+          example: "/faqs?page=1"
+        first:
+          type: string
+          description: 最初のページへのリンク
+          example: "/faqs?page=1"
+        last:
+          type: string
+          description: 最後のページへのリンク
+          example: "/faqs?page=5"
+
+    # 成功レスポンス（単一リソース）
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: 処理結果のメッセージ
+          example: "操作が成功しました"
+        _links:
+          $ref: "#/components/schemas/LinksMeta"
+
+    # 成功レスポンス（リソース一覧）
+    SuccessCollectionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: 処理結果のメッセージ
+          example: "データを取得しました"
+        _meta:
+          $ref: "#/components/schemas/PaginationMeta"
+        _links:
+          $ref: "#/components/schemas/LinksMeta"
+
+    # エラーレスポンス詳細
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: エラーコード
+          example: "validation_error"
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "入力内容に誤りがあります"
+        details:
+          type: object
+          description: 詳細なエラー情報
+          additionalProperties:
+            type: string
+          example:
+            field1: "1文字以上入力してください"
+            field2: "正しい形式で入力してください"
+
+    # エラーレスポンス
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"

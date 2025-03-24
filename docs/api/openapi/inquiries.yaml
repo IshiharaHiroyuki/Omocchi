@@ -1,0 +1,572 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - Inquiry Management API
+  version: 1.0.0
+
+paths:
+  /inquiries:
+    get:
+      tags:
+        - inquiry
+      summary: 問合せ一覧取得
+      description: 問合せの一覧を取得します。
+      operationId: listInquiries
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "./common.yaml#/components/parameters/pageParam"
+        - $ref: "./common.yaml#/components/parameters/perPageParam"
+        - name: status
+          in: query
+          description: ステータスでのフィルタリング
+          schema:
+            type: string
+            enum: [new, in_progress, waiting_response, resolved, closed]
+        - name: priority
+          in: query
+          description: 優先度でのフィルタリング
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+        - name: category_id
+          in: query
+          description: カテゴリIDでのフィルタリング
+          schema:
+            type: integer
+            minimum: 1
+        - name: assignee_id
+          in: query
+          description: 担当者IDでのフィルタリング
+          schema:
+            type: integer
+            minimum: 1
+        - name: search
+          in: query
+          description: 件名・本文の全文検索
+          schema:
+            type: string
+            maxLength: 100
+        - name: created_from
+          in: query
+          description: 作成日時の開始日（YYYY-MM-DD）
+          schema:
+            type: string
+            format: date
+        - name: created_to
+          in: query
+          description: 作成日時の終了日（YYYY-MM-DD）
+          schema:
+            type: string
+            format: date
+        - name: sort
+          in: query
+          description: ソートフィールド
+          schema:
+            type: string
+            enum: [created_at, updated_at, priority, status, response_time]
+            default: created_at
+        - name: order
+          in: query
+          description: ソート順
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: 問合せ一覧取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  inquiries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InquirySummary"
+                  summary:
+                    $ref: "#/components/schemas/InquirySummaryStats"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+    post:
+      tags:
+        - inquiry
+      summary: 問合せ作成
+      description: |
+        新しい問合せを作成します。
+        
+        ## レート制限
+        - 未認証ユーザー: 3リクエスト/時/IP
+        - 認証済みユーザー: 10リクエスト/時
+      operationId: createInquiry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInquiryRequest"
+      responses:
+        '201':
+          description: 問合せ作成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  inquiry:
+                    $ref: "#/components/schemas/InquiryDetail"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+  /inquiries/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: 問合せID
+
+    get:
+      tags:
+        - inquiry
+      summary: 問合せ詳細取得
+      description: 指定されたIDの問合せ詳細を取得します。
+      operationId: getInquiry
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 問合せ詳細取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryDetail"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+  /inquiries/{id}/responses:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: 問合せID
+
+    post:
+      tags:
+        - inquiry
+      summary: 問合せ返信作成
+      description: |
+        問合せに対する返信を作成します。
+        
+        ## レート制限
+        - 認証済みユーザー: 30リクエスト/時
+      operationId: createInquiryResponse
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInquiryResponseRequest"
+      responses:
+        '201':
+          description: 返信作成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  response:
+                    $ref: "#/components/schemas/InquiryResponse"
+                  status_update:
+                    $ref: "#/components/schemas/StatusUpdate"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+  /inquiries/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: 問合せID
+
+    put:
+      tags:
+        - inquiry
+      summary: 問合せステータス更新
+      description: |
+        問合せのステータスを更新します。
+        
+        ## レート制限
+        - support_agent: 60リクエスト/時
+        - admin: 200リクエスト/時
+      operationId: updateInquiryStatus
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInquiryStatusRequest"
+      responses:
+        '200':
+          description: ステータス更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  inquiry:
+                    $ref: "#/components/schemas/InquiryStatusInfo"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+components:
+  schemas:
+    InquirySummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticket_number:
+          type: string
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [new, in_progress, waiting_response, resolved, closed]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        category:
+          $ref: "#/components/schemas/Category"
+        user:
+          $ref: "#/components/schemas/User"
+        assignee:
+          $ref: "#/components/schemas/User"
+        response_count:
+          type: integer
+        last_response_at:
+          type: string
+          format: date-time
+        response_time:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        _links:
+          type: object
+          properties:
+            self:
+              type: string
+            responses:
+              type: string
+
+    InquiryDetail:
+      allOf:
+        - $ref: "#/components/schemas/InquirySummary"
+        - type: object
+          properties:
+            content:
+              type: string
+            attachments:
+              type: array
+              items:
+                $ref: "#/components/schemas/Attachment"
+            responses:
+              type: array
+              items:
+                $ref: "#/components/schemas/InquiryResponse"
+            timeline:
+              type: array
+              items:
+                $ref: "#/components/schemas/TimelineEvent"
+
+    InquirySummaryStats:
+      type: object
+      properties:
+        total_open:
+          type: integer
+        total_closed:
+          type: integer
+        by_status:
+          type: object
+          additionalProperties:
+            type: integer
+        by_priority:
+          type: object
+          additionalProperties:
+            type: integer
+        by_category:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              count:
+                type: integer
+        average_response_time:
+          type: string
+        average_resolution_time:
+          type: string
+
+    CreateInquiryRequest:
+      type: object
+      required:
+        - subject
+        - content
+        - contact_info
+      properties:
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          minLength: 10
+          maxLength: 10000
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        category_id:
+          type: integer
+          minimum: 1
+        contact_info:
+          $ref: "#/components/schemas/ContactInfo"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttachmentUpload"
+          maxItems: 3
+
+    CreateInquiryResponseRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        is_internal_note:
+          type: boolean
+          default: false
+        status_update:
+          $ref: "#/components/schemas/StatusUpdateRequest"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttachmentUpload"
+          maxItems: 3
+
+    UpdateInquiryStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [new, in_progress, waiting_response, resolved, closed]
+        comment:
+          type: string
+          maxLength: 1000
+        notify_user:
+          type: boolean
+          default: true
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    ContactInfo:
+      type: object
+      required:
+        - email
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          pattern: "^[0-9-+]+$"
+          maxLength: 20
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        mime_type:
+          type: string
+        size:
+          type: integer
+        url:
+          type: string
+
+    AttachmentUpload:
+      type: object
+      required:
+        - filename
+        - content_base64
+      properties:
+        filename:
+          type: string
+          maxLength: 255
+          pattern: "^[\\w\\-. ]+$"
+        content_base64:
+          type: string
+          maxLength: 5242880 # 5MB
+
+    InquiryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+        is_internal_note:
+          type: boolean
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+        author:
+          $ref: "#/components/schemas/User"
+        created_at:
+          type: string
+          format: date-time
+
+    TimelineEvent:
+      type: object
+      required:
+        - type
+        - occurred_at
+      properties:
+        type:
+          type: string
+          enum: [created, assigned, status_changed]
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/User"
+        assignee:
+          $ref: "#/components/schemas/User"
+        from:
+          type: string
+        to:
+          type: string
+
+    StatusUpdate:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        changed_at:
+          type: string
+          format: date-time
+
+    StatusUpdateRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [new, in_progress, waiting_response, resolved, closed]
+        comment:
+          type: string
+          maxLength: 1000
+
+    InquiryStatusInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticket_number:
+          type: string
+        status:
+          type: string
+          enum: [new, in_progress, waiting_response, resolved, closed]
+        status_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusUpdate"
+        updated_at:
+          type: string
+          format: date-time

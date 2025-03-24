@@ -1,0 +1,214 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - Search API
+  version: 1.0.0
+
+paths:
+  /search:
+    get:
+      tags:
+        - search
+      summary: FAQ検索
+      description: |
+        FAQの全文検索を実行します。
+        
+        ## キャッシュ戦略
+        - 検索結果は5分間キャッシュ
+        - キャッシュキー: クエリパラメータの組み合わせ
+      operationId: searchFaqs
+      parameters:
+        - $ref: "./common.yaml#/components/parameters/pageParam"
+        - $ref: "./common.yaml#/components/parameters/perPageParam"
+        - name: q
+          in: query
+          required: true
+          description: 検索キーワード
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: category_id
+          in: query
+          description: カテゴリによるフィルタ
+          schema:
+            type: integer
+            minimum: 1
+        - name: tag_id
+          in: query
+          description: タグによるフィルタ
+          schema:
+            type: integer
+            minimum: 1
+        - name: sort
+          in: query
+          description: ソートフィールド
+          schema:
+            type: string
+            enum: [relevance, created_at, helpful_rate]
+            default: relevance
+        - name: order
+          in: query
+          description: ソート順（relevanceの場合は無視）
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: 検索成功
+          headers:
+            Cache-Control:
+              $ref: "./common.yaml#/components/headers/Cache-Control"
+            X-Total-Count:
+              $ref: "./common.yaml#/components/headers/X-Total-Count"
+            X-Page-Number:
+              $ref: "./common.yaml#/components/headers/X-Page-Number"
+            X-Page-Size:
+              $ref: "./common.yaml#/components/headers/X-Page-Size"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessCollectionResponse"
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: "./schemas/models.yaml#/components/schemas/FAQ"
+                            - type: object
+                              properties:
+                                score:
+                                  type: number
+                                  format: float
+                                  description: 検索スコア
+                                highlights:
+                                  type: object
+                                  properties:
+                                    title:
+                                      type: array
+                                      items:
+                                        type: string
+                                    content:
+                                      type: array
+                                      items:
+                                        type: string
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+
+  /faqs/{id}/related:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: FAQ ID
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags:
+        - search
+      summary: 関連FAQ取得
+      description: |
+        指定されたFAQに関連する他のFAQを取得します。
+        
+        ## キャッシュ戦略
+        - 1時間キャッシュ
+      operationId: getRelatedFaqs
+      parameters:
+        - name: limit
+          in: query
+          description: 取得件数
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 5
+      responses:
+        '200':
+          description: 関連FAQ取得成功
+          headers:
+            Cache-Control:
+              $ref: "./common.yaml#/components/headers/Cache-Control"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  faqs:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "./schemas/models.yaml#/components/schemas/FAQ"
+                        - type: object
+                          properties:
+                            relevance_score:
+                              type: number
+                              format: float
+                              description: 関連度スコア
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+  /search/suggest:
+    get:
+      tags:
+        - search
+      summary: 検索サジェスト取得
+      description: |
+        入力中のキーワードに基づいて検索サジェストを提供します。
+        
+        ## キャッシュ戦略
+        - 1時間キャッシュ
+        - プレフィックスベースのキャッシュ
+      operationId: getSearchSuggestions
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: 入力中のキーワード
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 50
+        - name: limit
+          in: query
+          description: 取得件数
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        '200':
+          description: サジェスト取得成功
+          headers:
+            Cache-Control:
+              $ref: "./common.yaml#/components/headers/Cache-Control"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        text:
+                          type: string
+                          description: サジェストテキスト
+                        count:
+                          type: integer
+                          description: 該当するFAQ数
+                        highlighted:
+                          type: string
+                          description: ハイライト表示用テキスト
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./schemas/security.yaml#/components/securitySchemes/bearerAuth"

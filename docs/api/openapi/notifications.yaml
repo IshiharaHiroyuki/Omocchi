@@ -1,0 +1,221 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - Notifications API
+  version: 1.0.0
+
+paths:
+  /notifications:
+    get:
+      tags:
+        - notifications
+      summary: WebSocket接続の確立
+      description: |
+        WebSocket接続を確立し、リアルタイム通知を受信します。
+        
+        ## WebSocketエンドポイント
+        ```
+        ws://api.faq-system.example.com/v1/notifications
+        ```
+        
+        ## 認証
+        - WebSocket接続時にクエリパラメータとしてアクセストークンを指定
+        - 例: `ws://api.faq-system.example.com/v1/notifications?token=<access_token>`
+        
+        ## 接続維持
+        - クライアントはPingメッセージを30秒ごとに送信する必要があります
+        - サーバーからPongメッセージが返信されます
+        - 90秒以上Pingがない場合、接続は切断されます
+      operationId: connectWebSocket
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: アクセストークン
+      responses:
+        '101':
+          description: WebSocket接続が確立されました
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+components:
+  schemas:
+    # WebSocketメッセージ定義
+    WebSocketMessage:
+      type: object
+      required:
+        - event
+        - data
+      properties:
+        event:
+          type: string
+          enum:
+            # システムイベント
+            - connection.established
+            - connection.error
+            - connection.closed
+            # FAQ関連イベント
+            - faq.created
+            - faq.updated
+            - faq.deleted
+            - faq.status_changed
+            - faq.feedback_received
+            # 問合せ関連イベント
+            - inquiry.created
+            - inquiry.updated
+            - inquiry.status_changed
+            - inquiry.response_added
+            - inquiry.assigned
+            # その他のイベント
+            - category.updated
+            - tag.updated
+            - system.maintenance
+          description: イベントタイプ
+        data:
+          type: object
+          description: イベントデータ（イベントタイプにより内容が異なる）
+
+    # 接続確立時のメッセージ
+    ConnectionEstablished:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: [connection.established]
+        data:
+          type: object
+          properties:
+            connection_id:
+              type: string
+              description: 接続を識別するユニークID
+            subscribed_channels:
+              type: array
+              items:
+                type: string
+              description: 購読しているチャンネル一覧
+
+    # FAQ作成イベント
+    FaqCreated:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: [faq.created]
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            title:
+              type: string
+            status:
+              type: string
+            created_by:
+              $ref: "./schemas/models.yaml#/components/schemas/User"
+            created_at:
+              type: string
+              format: date-time
+
+    # FAQ更新イベント
+    FaqUpdated:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: [faq.updated]
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            changes:
+              type: object
+              description: 変更されたフィールドと値
+            updated_by:
+              $ref: "./schemas/models.yaml#/components/schemas/User"
+            updated_at:
+              type: string
+              format: date-time
+
+    # 問合せ作成イベント
+    InquiryCreated:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: [inquiry.created]
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            ticket_number:
+              type: string
+            subject:
+              type: string
+            priority:
+              type: string
+            category:
+              $ref: "./schemas/models.yaml#/components/schemas/Category"
+            created_at:
+              type: string
+              format: date-time
+
+    # 問合せステータス変更イベント
+    InquiryStatusChanged:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: [inquiry.status_changed]
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            ticket_number:
+              type: string
+            from_status:
+              type: string
+            to_status:
+              type: string
+            changed_by:
+              $ref: "./schemas/models.yaml#/components/schemas/User"
+            changed_at:
+              type: string
+              format: date-time
+
+    # メンテナンス通知イベント
+    SystemMaintenance:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: [system.maintenance]
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [scheduled, emergency]
+            start_time:
+              type: string
+              format: date-time
+            end_time:
+              type: string
+              format: date-time
+            description:
+              type: string
+            affected_services:
+              type: array
+              items:
+                type: string
+
+  securitySchemes:
+    bearerAuth:
+      $ref: "./schemas/security.yaml#/components/securitySchemes/bearerAuth"

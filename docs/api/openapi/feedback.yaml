@@ -1,0 +1,206 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - Feedback Management API
+  version: 1.0.0
+
+paths:
+  /faqs/{id}/feedback:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: FAQ ID
+        schema:
+          type: integer
+          minimum: 1
+
+    post:
+      tags:
+        - feedback
+      summary: フィードバック送信
+      description: |
+        FAQに対するフィードバックを送信します。
+        
+        ## レート制限
+        - 未認証ユーザー: 10リクエスト/時/IP
+        - 認証済みユーザー: 30リクエスト/時
+      operationId: createFeedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: 評価（1-5）
+                comment:
+                  type: string
+                  maxLength: 1000
+                  description: フィードバックコメント
+                is_resolved:
+                  type: boolean
+                  description: 解決したかどうか
+      responses:
+        '201':
+          description: フィードバック送信成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      feedback:
+                        $ref: "./schemas/models.yaml#/components/schemas/Feedback"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+        '429':
+          $ref: "./common.yaml#/components/responses/Error429"
+
+  /faqs/{id}/feedback/list:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: FAQ ID
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags:
+        - feedback
+      summary: フィードバック一覧取得
+      description: 特定のFAQに対するフィードバック一覧を取得します。
+      operationId: listFeedback
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "./common.yaml#/components/parameters/pageParam"
+        - $ref: "./common.yaml#/components/parameters/perPageParam"
+        - name: rating
+          in: query
+          description: 評価フィルタ
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - name: is_resolved
+          in: query
+          description: 解決済みフィルタ
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          description: ソートフィールド
+          schema:
+            type: string
+            enum: [created_at, rating]
+            default: created_at
+        - name: order
+          in: query
+          description: ソート順
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: フィードバック一覧取得成功
+          headers:
+            X-Total-Count:
+              $ref: "./common.yaml#/components/headers/X-Total-Count"
+            X-Page-Number:
+              $ref: "./common.yaml#/components/headers/X-Page-Number"
+            X-Page-Size:
+              $ref: "./common.yaml#/components/headers/X-Page-Size"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessCollectionResponse"
+                  - type: object
+                    properties:
+                      feedback:
+                        type: array
+                        items:
+                          $ref: "./schemas/models.yaml#/components/schemas/Feedback"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+  /faqs/{id}/feedback/summary:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: FAQ ID
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags:
+        - feedback
+      summary: フィードバック集計取得
+      description: |
+        特定のFAQに対するフィードバックの集計情報を取得します。
+        
+        ## キャッシュ戦略
+        - 1時間キャッシュ
+      operationId: getFeedbackSummary
+      responses:
+        '200':
+          description: フィードバック集計取得成功
+          headers:
+            Cache-Control:
+              $ref: "./common.yaml#/components/headers/Cache-Control"
+            ETag:
+              $ref: "./common.yaml#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: 総フィードバック数
+                  average_rating:
+                    type: number
+                    format: float
+                    description: 平均評価（1-5）
+                  rating_distribution:
+                    type: object
+                    properties:
+                      "1":
+                        type: integer
+                      "2":
+                        type: integer
+                      "3":
+                        type: integer
+                      "4":
+                        type: integer
+                      "5":
+                        type: integer
+                  resolution_rate:
+                    type: number
+                    format: float
+                    description: 解決率（0-1）
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./schemas/security.yaml#/components/securitySchemes/bearerAuth"

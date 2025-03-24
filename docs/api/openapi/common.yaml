@@ -1,0 +1,184 @@
+openapi: 3.0.0
+info:
+  title: FAQシステム API
+  description: |
+    FAQシステムのREST APIインターフェース仕様
+    
+    ## 概要
+    このAPIは、FAQシステムの全機能を提供します。詳細な仕様は各APIファイルを参照してください。
+    
+    ## バージョン管理
+    - メジャーバージョン: URLパスで管理 (/v1/...)
+    - マイナーバージョン: この仕様書のバージョンで管理
+  version: 1.0.0
+  contact:
+    name: FAQシステム開発チーム
+    email: api-support@example.com
+
+servers:
+  - url: https://api.faq-system.example.com/v1
+    description: 本番環境
+  - url: https://staging-api.faq-system.example.com/v1
+    description: ステージング環境
+  - url: https://dev-api.faq-system.example.com/v1
+    description: 開発環境
+
+components:
+  headers:
+    X-Total-Count:
+      description: 総件数
+      schema:
+        type: integer
+    X-Page-Number:
+      description: 現在のページ番号
+      schema:
+        type: integer
+    X-Page-Size:
+      description: 1ページあたりの件数
+      schema:
+        type: integer
+    ETag:
+      description: リソースのバージョン識別子
+      schema:
+        type: string
+    Cache-Control:
+      description: キャッシュ制御
+      schema:
+        type: string
+
+  parameters:
+    pageParam:
+      name: page
+      in: query
+      description: ページ番号（1から開始）
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    perPageParam:
+      name: per_page
+      in: query
+      description: 1ページあたりの件数（最大100）
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        アクセストークンをAuthorizationヘッダーに指定してください
+        
+        例: `Authorization: Bearer <access_token>`
+
+  responses:
+    Error400:
+      description: リクエストが不正です
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: invalid_parameter
+                  message:
+                    type: string
+                    example: 不正なパラメータが指定されました
+                  details:
+                    type: object
+                    additionalProperties:
+                      type: string
+    Error401:
+      description: 認証が必要です
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: unauthorized
+                  message:
+                    type: string
+                    example: 認証が必要です
+    Error403:
+      description: 権限がありません
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: forbidden
+                  message:
+                    type: string
+                    example: この操作を行う権限がありません
+    Error404:
+      description: リソースが見つかりません
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: not_found
+                  message:
+                    type: string
+                    example: 指定されたリソースが見つかりません
+    Error429:
+      description: リクエスト制限を超えました
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: too_many_requests
+                  message:
+                    type: string
+                    example: リクエスト制限を超えました
+                  details:
+                    type: object
+                    properties:
+                      retry_after:
+                        type: integer
+                        description: 次のリクエストまでの待機時間（秒）
+                        example: 60
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+    description: 認証・認可関連
+  - name: faq
+    description: FAQ管理
+  - name: taxonomy
+    description: カテゴリ・タグ管理
+  - name: feedback
+    description: フィードバック管理
+  - name: search
+    description: 検索機能

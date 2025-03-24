@@ -1,0 +1,276 @@
+openapi: 3.0.0
+info:
+  title: FAQ System - Taxonomy Management API
+  version: 1.0.0
+
+paths:
+  /categories:
+    get:
+      tags:
+        - taxonomy
+      summary: カテゴリ一覧取得
+      description: |
+        カテゴリの一覧を取得します。
+        階層構造を持つカテゴリ情報が返されます。
+      operationId: listCategories
+      parameters:
+        - name: include_counts
+          in: query
+          description: FAQ数を含めるかどうか
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: カテゴリ一覧取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "./schemas/models.yaml#/components/schemas/Category"
+
+    post:
+      tags:
+        - taxonomy
+      summary: カテゴリ作成
+      description: 新しいカテゴリを作成します。
+      operationId: createCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: カテゴリ名
+                parent_id:
+                  type: integer
+                  minimum: 1
+                  description: 親カテゴリID
+                display_order:
+                  type: integer
+                  minimum: 0
+                  description: 表示順（同一階層内）
+      responses:
+        '201':
+          description: カテゴリ作成成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      category:
+                        $ref: "./schemas/models.yaml#/components/schemas/Category"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+  /categories/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: カテゴリID
+        schema:
+          type: integer
+          minimum: 1
+
+    put:
+      tags:
+        - taxonomy
+      summary: カテゴリ更新
+      description: 指定されたカテゴリを更新します。
+      operationId: updateCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: カテゴリ名
+                parent_id:
+                  type: integer
+                  minimum: 1
+                  nullable: true
+                  description: 親カテゴリID
+                display_order:
+                  type: integer
+                  minimum: 0
+                  description: 表示順（同一階層内）
+      responses:
+        '200':
+          description: カテゴリ更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      category:
+                        $ref: "./schemas/models.yaml#/components/schemas/Category"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+    delete:
+      tags:
+        - taxonomy
+      summary: カテゴリ削除
+      description: |
+        指定されたカテゴリを削除します。
+        サブカテゴリが存在する場合は削除できません。
+      operationId: deleteCategory
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: カテゴリ削除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "カテゴリを削除しました"
+        '400':
+          description: 削除できないカテゴリ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "category_not_empty"
+                      message:
+                        type: string
+                        example: "サブカテゴリが存在するため削除できません"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+        '404':
+          $ref: "./common.yaml#/components/responses/Error404"
+
+  /tags:
+    get:
+      tags:
+        - taxonomy
+      summary: タグ一覧取得
+      description: タグの一覧を取得します。
+      operationId: listTags
+      parameters:
+        - name: q
+          in: query
+          description: 検索キーワード
+          schema:
+            type: string
+            maxLength: 100
+        - name: sort
+          in: query
+          description: ソートフィールド
+          schema:
+            type: string
+            enum: [name, usage_count]
+            default: usage_count
+        - name: order
+          in: query
+          description: ソート順
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: タグ一覧取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: "./schemas/models.yaml#/components/schemas/Tag"
+
+    post:
+      tags:
+        - taxonomy
+      summary: タグ作成
+      description: 新しいタグを作成します。
+      operationId: createTag
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  description: タグ名
+      responses:
+        '201':
+          description: タグ作成成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/responses.yaml#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      tag:
+                        $ref: "./schemas/models.yaml#/components/schemas/Tag"
+        '400':
+          $ref: "./common.yaml#/components/responses/Error400"
+        '401':
+          $ref: "./common.yaml#/components/responses/Error401"
+        '403':
+          $ref: "./common.yaml#/components/responses/Error403"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./schemas/security.yaml#/components/securitySchemes/bearerAuth"

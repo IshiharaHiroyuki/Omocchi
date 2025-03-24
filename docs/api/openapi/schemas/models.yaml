@@ -1,0 +1,206 @@
+components:
+  schemas:
+    # ユーザー関連
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - roles
+      properties:
+        id:
+          type: string
+          description: ユーザーID
+          example: "user123"
+        email:
+          type: string
+          format: email
+          description: メールアドレス
+          example: "user@example.com"
+        roles:
+          type: array
+          description: ユーザーロール
+          items:
+            type: string
+            enum: [admin, content_manager, support_agent, user]
+          example: ["user"]
+        permissions:
+          type: array
+          description: 権限一覧
+          items:
+            type: string
+          example: ["read:faqs", "create:feedback"]
+
+    # FAQ関連
+    FAQ:
+      type: object
+      required:
+        - id
+        - title
+        - content
+        - status
+      properties:
+        id:
+          type: integer
+          description: FAQ ID
+          example: 1
+        title:
+          type: string
+          description: FAQタイトル
+          example: "アカウントの登録方法について"
+        content:
+          type: string
+          description: FAQ本文
+          example: "以下の手順でアカウントを登録できます..."
+        categories:
+          type: array
+          description: カテゴリ一覧
+          items:
+            $ref: "#/components/schemas/Category"
+        tags:
+          type: array
+          description: タグ一覧
+          items:
+            $ref: "#/components/schemas/Tag"
+        attachments:
+          type: array
+          description: 添付ファイル一覧
+          items:
+            $ref: "#/components/schemas/Attachment"
+        view_count:
+          type: integer
+          description: 閲覧回数
+          example: 100
+        helpful_rate:
+          type: number
+          format: float
+          description: 有益率（0-1）
+          example: 0.95
+        status:
+          type: integer
+          description: ステータス（0:下書き, 1:公開, 2:非公開）
+          enum: [0, 1, 2]
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          description: 作成日時
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新日時
+
+    # カテゴリ関連
+    Category:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: カテゴリID
+          example: 1
+        name:
+          type: string
+          description: カテゴリ名
+          example: "アカウント管理"
+        parent_id:
+          type: integer
+          nullable: true
+          description: 親カテゴリID
+          example: null
+        display_order:
+          type: integer
+          description: 表示順
+          example: 1
+        children:
+          type: array
+          description: サブカテゴリ一覧
+          items:
+            $ref: "#/components/schemas/Category"
+
+    # タグ関連
+    Tag:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: タグID
+          example: 1
+        name:
+          type: string
+          description: タグ名
+          example: "初期設定"
+        usage_count:
+          type: integer
+          description: 使用回数
+          example: 10
+
+    # 添付ファイル関連
+    Attachment:
+      type: object
+      required:
+        - id
+        - filename
+        - mime_type
+        - url
+      properties:
+        id:
+          type: integer
+          description: 添付ファイルID
+          example: 1
+        filename:
+          type: string
+          description: ファイル名
+          example: "setup.png"
+        mime_type:
+          type: string
+          description: MIMEタイプ
+          example: "image/png"
+        url:
+          type: string
+          description: ダウンロードURL
+          example: "https://example.com/files/setup.png"
+        size:
+          type: integer
+          description: ファイルサイズ（バイト）
+          example: 1024
+
+    # フィードバック関連
+    Feedback:
+      type: object
+      required:
+        - id
+        - faq_id
+        - rating
+      properties:
+        id:
+          type: integer
+          description: フィードバックID
+          example: 1
+        faq_id:
+          type: integer
+          description: FAQ ID
+          example: 1
+        rating:
+          type: integer
+          description: 評価（1-5）
+          minimum: 1
+          maximum: 5
+          example: 5
+        comment:
+          type: string
+          description: フィードバックコメント
+          example: "とても分かりやすい説明でした"
+        is_resolved:
+          type: boolean
+          description: 解決したかどうか
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          description: 作成日時
